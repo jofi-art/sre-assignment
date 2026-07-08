@@ -264,6 +264,8 @@ pytest tests/test_properties.py -v
 - **Case-insensitive city name handling**: Implementing case-insensitive lookup while preserving the original stored casing required a design decision to use the lowercased name as the Elasticsearch document ID and store the display name as a separate field.
 - **Input validation ordering**: Ensuring that path parameter validation (city name) runs before body parsing required manual validation rather than relying solely on Pydantic model validators, since FastAPI processes them in a specific order.
 - **Helm subchart coordination**: Configuring the Bitnami Elasticsearch subchart to work seamlessly with the API service required careful wiring of service names and environment variables so the API can locate Elasticsearch at startup without manual intervention.
+- **Elasticsearch memory consumption during local development**: Running Elasticsearch in Docker Desktop with its default JVM heap settings (1-2GB) caused the container to OOM and froze the host machine entirely, requiring a hard restart. This was resolved by limiting the JVM heap to 256MB via `ES_JAVA_OPTS=-Xms256m -Xmx256m` and setting a hard Docker memory limit with `-m 512m`, which is more than sufficient for development and testing with small datasets.
+- **Elasticsearch client version incompatibility**: The Python `elasticsearch[async]` client v9.x sends an `Accept` header with `compatible-with=9`, which Elasticsearch 8.x rejects with a `media_type_header_exception`. The API container would start but immediately exit because the health ping failed. This was fixed by pinning the client to `elasticsearch[async]>=8.0.0,<9.0.0` in `requirements.txt` to match the server version.
 
 ### Production Scaling Suggestions
 
