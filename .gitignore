@@ -1,0 +1,32 @@
+# Kiro specs
+.kiro/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.venv/
+venv/
+env/
+.env
+
+# Testing
+.pytest_cache/
+.hypothesis/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Helm dependencies
+helm/city-population-api/charts/
+helm/city-population-api/Chart.lock
