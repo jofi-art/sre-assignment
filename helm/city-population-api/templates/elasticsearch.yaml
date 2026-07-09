@@ -1,0 +1,86 @@
+{{- if .Values.elasticsearch.enabled }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "city-population-api.fullname" . }}-elasticsearch
+  labels:
+    {{- include "city-population-api.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  type: ClusterIP
+  ports:
+    - port: 9200
+      targetPort: 9200
+      protocol: TCP
+      name: http
+    - port: 9300
+      targetPort: 9300
+      protocol: TCP
+      name: transport
+  selector:
+    {{- include "city-population-api.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "city-population-api.fullname" . }}-elasticsearch
+  labels:
+    {{- include "city-population-api.labels" . | nindent 4 }}
+    app.kubernetes.io/component: elasticsearch
+spec:
+  serviceName: {{ include "city-population-api.fullname" . }}-elasticsearch
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "city-population-api.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: elasticsearch
+  template:
+    metadata:
+      labels:
+        {{- include "city-population-api.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: elasticsearch
+    spec:
+      containers:
+        - name: elasticsearch
+          image: "{{ .Values.elasticsearch.image.repository }}:{{ .Values.elasticsearch.image.tag }}"
+          imagePullPolicy: {{ .Values.elasticsearch.image.pullPolicy }}
+          ports:
+            - containerPort: 9200
+              name: http
+            - containerPort: 9300
+              name: transport
+          env:
+            - name: discovery.type
+              value: single-node
+            - name: xpack.security.enabled
+              value: "false"
+            - name: ES_JAVA_OPTS
+              value: "-Xms256m -Xmx256m"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 512Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /_cluster/health
+              port: 9200
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 6
+          volumeMounts:
+            - name: data
+              mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.elasticsearch.persistence.size | default "1Gi" }}
+{{- end }}

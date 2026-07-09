@@ -5,6 +5,10 @@ metadata:
   labels:
     {{- include "city-population-api.labels" . | nindent 4 }}
 data:
+  {{- if and .Values.elasticsearch.enabled (eq .Values.elasticsearch.host "") }}
+  ELASTICSEARCH_HOST: "{{ include "city-population-api.fullname" . }}-elasticsearch"
+  {{- else }}
   ELASTICSEARCH_HOST: {{ .Values.elasticsearch.host | quote }}
+  {{- end }}
   ELASTICSEARCH_PORT: {{ .Values.elasticsearch.port | quote }}
   ELASTICSEARCH_SCHEME: {{ .Values.elasticsearch.scheme | quote }}

@@ -101,39 +101,69 @@ docker run -d \
 
 ## Kubernetes Deployment
 
-### 1. Update Helm dependencies
+### Prerequisites
+
+- A Kubernetes cluster (Docker Desktop with K8s enabled, minikube, or a cloud cluster)
+- Helm 3
+- The `city-population-api:latest` image built locally (`docker build -t city-population-api:latest .`)
+
+### Deploy the Full Stack
 
 ```bash
-helm dependency update helm/city-population-api
-```
+# Lint the chart
+helm lint helm/city-population-api
 
-### 2. Deploy with Helm
+# Deploy (uses local image with pullPolicy=Never for the API)
+helm install city-population helm/city-population-api --set image.pullPolicy=Never
 
-```bash
-helm install city-population helm/city-population-api
-```
+# Watch pods until both are Running (~60s for ES)
+kubectl get pods -w
 
-This deploys both the API service and an Elasticsearch instance via the Bitnami subchart.
-
-### 3. Verify the deployment
-
-Wait for pods to become ready:
-
-```bash
-kubectl get pods -l app.kubernetes.io/name=city-population-api --watch
-```
-
-Once running, port-forward to test the health endpoint:
-
-```bash
-kubectl port-forward svc/city-population-city-population-api 8000:8000
-curl http://localhost:8000/health
+# Once running, port-forward to test
+kubectl port-forward svc/city-population-city-population-api 8080:8000
+curl http://localhost:8080/health
 ```
 
 Expected response:
 
 ```json
 {"status": "ok"}
+```
+
+### Lightweight Local Testing (Resource-Constrained Machines)
+
+Running Elasticsearch in Kubernetes on Docker Desktop requires significant RAM (~1GB+ for ES + K8s overhead). If your machine struggles with memory, you can test the API pod in K8s while running ES in plain Docker:
+
+```bash
+# Start ES in Docker with limited memory
+docker run -d --name elasticsearch -p 9200:9200 -m 512m -e "discovery.type=single-node" -e "xpack.security.enabled=false" -e "ES_JAVA_OPTS=-Xms256m -Xmx256m" elasticsearch:8.12.0
+
+# Deploy only the API to K8s, pointing to the host ES
+helm install city-population helm/city-population-api \
+  --set image.pullPolicy=Never \
+  --set elasticsearch.enabled=false \
+  --set elasticsearch.host=host.docker.internal \
+  --set elasticsearch.port=9200
+
+# Port-forward and test
+kubectl port-forward svc/city-population-city-population-api 8080:8000
+curl http://localhost:8080/health
+```
+
+### Data Persistence
+
+When deployed with `elasticsearch.enabled=true`, the Helm chart creates a PersistentVolumeClaim (1Gi) for Elasticsearch data. This ensures city population data survives pod restarts and redeployments.
+
+```bash
+# Verify PVC is created
+kubectl get pvc
+```
+
+### Uninstall
+
+```bash
+helm uninstall city-population
+kubectl delete pvc --all  # Remove persistent data if desired
 ```
 
 ## API Usage
@@ -266,6 +296,7 @@ pytest tests/test_properties.py -v
 - **Helm subchart coordination**: Configuring the Bitnami Elasticsearch subchart to work seamlessly with the API service required careful wiring of service names and environment variables so the API can locate Elasticsearch at startup without manual intervention.
 - **Elasticsearch memory consumption during local development**: Running Elasticsearch in Docker Desktop with its default JVM heap settings (1-2GB) caused the container to OOM and froze the host machine entirely, requiring a hard restart. This was resolved by limiting the JVM heap to 256MB via `ES_JAVA_OPTS=-Xms256m -Xmx256m` and setting a hard Docker memory limit with `-m 512m`, which is more than sufficient for development and testing with small datasets.
 - **Elasticsearch client version incompatibility**: The Python `elasticsearch[async]` client v9.x sends an `Accept` header with `compatible-with=9`, which Elasticsearch 8.x rejects with a `media_type_header_exception`. The API container would start but immediately exit because the health ping failed. This was fixed by pinning the client to `elasticsearch[async]>=8.0.0,<9.0.0` in `requirements.txt` to match the server version.
+- **Bitnami Elasticsearch images no longer free on Docker Hub**: The Bitnami Helm subchart for Elasticsearch references images that have been moved behind a commercial paywall. This was resolved by replacing the subchart dependency with a custom StatefulSet template that uses the official `elasticsearch:8.12.0` image, configured as a single-node cluster with security disabled for development.
 
 ### Production Scaling Suggestions
 

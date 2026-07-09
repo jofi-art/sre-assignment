@@ -1,6 +1,4 @@
 # Default values for city-population-api.
-# This is a YAML-formatted file.
-# Declare variables to be passed into your templates.
 
 replicaCount: 1
 
@@ -25,20 +23,26 @@ livenessProbe:
   httpGet:
     path: /health
     port: 8000
-  initialDelaySeconds: 15
+  initialDelaySeconds: 30
   periodSeconds: 10
-  failureThreshold: 3
+  failureThreshold: 6
 
 readinessProbe:
   httpGet:
     path: /health
     port: 8000
-  initialDelaySeconds: 10
+  initialDelaySeconds: 20
   periodSeconds: 5
-  failureThreshold: 3
+  failureThreshold: 6
 
 elasticsearch:
   enabled: true
   host: ""
   port: 9200
   scheme: http
+  image:
+    repository: elasticsearch
+    tag: "8.12.0"
+    pullPolicy: IfNotPresent
+  persistence:
+    size: 1Gi
