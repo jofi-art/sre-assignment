@@ -107,6 +107,27 @@ docker run -d \
 - Helm 3
 - The `city-population-api:latest` image built locally (`docker build -t city-population-api:latest .`)
 
+### Helm Chart Structure
+
+```
+helm/city-population-api/
+├── Chart.yaml              # Chart metadata (apiVersion v2, version 0.1.0)
+├── values.yaml             # Configurable defaults (replicas, resources, probes, ES settings)
+├── .helmignore             # Files excluded from packaging
+└── templates/
+    ├── _helpers.tpl        # Reusable template helpers (name, labels, selectors)
+    ├── deployment.yaml     # API Deployment (1 replica, env from ConfigMap, probes)
+    ├── service.yaml        # API ClusterIP Service on port 8000
+    ├── configmap.yaml      # ES connection env vars (auto-discovers ES service name)
+    └── elasticsearch.yaml  # ES StatefulSet + Service + PersistentVolumeClaim
+```
+
+The Elasticsearch template deploys a single-node cluster using the official `elasticsearch:8.12.0` image with:
+- 256MB JVM heap (`ES_JAVA_OPTS`)
+- Security disabled for development
+- A 1Gi PersistentVolumeClaim for data durability
+- Readiness probe on `/_cluster/health`
+
 ### Deploy the Full Stack
 
 ```bash
@@ -297,6 +318,7 @@ pytest tests/test_properties.py -v
 - **Elasticsearch memory consumption during local development**: Running Elasticsearch in Docker Desktop with its default JVM heap settings (1-2GB) caused the container to OOM and froze the host machine entirely, requiring a hard restart. This was resolved by limiting the JVM heap to 256MB via `ES_JAVA_OPTS=-Xms256m -Xmx256m` and setting a hard Docker memory limit with `-m 512m`, which is more than sufficient for development and testing with small datasets.
 - **Elasticsearch client version incompatibility**: The Python `elasticsearch[async]` client v9.x sends an `Accept` header with `compatible-with=9`, which Elasticsearch 8.x rejects with a `media_type_header_exception`. The API container would start but immediately exit because the health ping failed. This was fixed by pinning the client to `elasticsearch[async]>=8.0.0,<9.0.0` in `requirements.txt` to match the server version.
 - **Bitnami Elasticsearch images no longer free on Docker Hub**: The Bitnami Helm subchart for Elasticsearch references images that have been moved behind a commercial paywall. This was resolved by replacing the subchart dependency with a custom StatefulSet template that uses the official `elasticsearch:8.12.0` image, configured as a single-node cluster with security disabled for development.
+- **Elasticsearch in Kubernetes causing OOM on local machine**: Deploying Elasticsearch as a pod inside Docker Desktop's Kubernetes cluster, combined with the K8s control plane overhead, Docker Desktop's own memory usage, and IDE processes, exceeded the available laptop RAM and caused the system to freeze repeatedly. For local development and testing, the workaround was to either run ES outside K8s in plain Docker with strict memory limits, or use the lightweight deployment approach (API in K8s, ES in Docker via `host.docker.internal`). In production with dedicated infrastructure, this is not an issue.
 
 ### Production Scaling Suggestions
 
