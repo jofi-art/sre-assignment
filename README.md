@@ -332,6 +332,8 @@ pytest tests/test_properties.py -v
 - Ship structured JSON logs to a centralized logging platform (e.g., ELK stack, Loki) for search and alerting.
 - Add distributed tracing with OpenTelemetry to trace requests across the API and Elasticsearch for latency debugging.
 - Set up alerts on key SLIs: error rate > threshold, p99 latency spikes, Elasticsearch cluster health degradation.
+- Visualize metrics and logs in Grafana dashboards for real-time monitoring, with pre-built panels for API request rates, error percentages, response time percentiles, and Elasticsearch cluster health.
+- Integrate Sentry for real-time error tracking and exception monitoring, providing stack traces, breadcrumbs, and release tracking to quickly identify and resolve production issues.
 
 **Security Hardening**
 - Enable TLS between the API and Elasticsearch, and for external API traffic via an ingress controller with TLS termination.
